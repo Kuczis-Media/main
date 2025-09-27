@@ -79,21 +79,41 @@
       }
     });
     //PRZEKIEROWANIA LINKÓW DO RODZICA JEŻELI SĄ ONE RELATYWNE
-    document.addEventListener('click', (e) => {
-    const link = e.target.closest('a');
-    if (!link) return;
-    const href = link.getAttribute('href');
-    if (!href) return;
 
-    // Przekierowania tylko dla ścieżek względnych na serwisie rodzica
-    if (href.startsWith('/')) {
-      e.preventDefault();
-      window.parent.postMessage(
-        { type: 'NAVIGATE', path: href },
-        'https://chemdisk.netlify.app' // ważne: ustaw właściwy origin rodzica
-      );
-    }
-  });
+      (function () {
+    const PARENT_ORIGIN = 'https://chemdisk.netlify.app';
+
+    // 1) Przechwytywanie klików w linki <a>
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest('a[href]');
+      if (!a) return;
+
+      const url = new URL(a.getAttribute('href'), location.href);
+      // Bierzemy końcówkę ścieżki + query + hash
+      const tail = url.pathname + url.search + url.hash;
+
+      // Jeśli link prowadzi do tej samej domeny co embed (albo chcesz inne warunki),
+      // to zamiast otwierać w iframe – przenieś rodzica:
+      if (url.origin === location.origin) {
+        e.preventDefault();
+        window.top.location.assign(PARENT_ORIGIN + tail);
+      }
+      // W przeciwnym razie (zewnętrzne linki) zostaw zachowanie domyślne.
+    });
+
+    // 2) Helper do przycisków/JS (gdy nie ma <a>, tylko np. onClick)
+    window.goOnParent = function (anyUrlOrPath) {
+      const url = new URL(anyUrlOrPath, location.href);
+      const tail = url.pathname + url.search + url.hash;
+      window.top.location.assign(PARENT_ORIGIN + tail);
+    };
+    // Przykład użycia w embedzie:
+    // <button onclick="goOnParent('/members/module/classic')">Idź</button>
+    // albo:
+    // <button onclick="goOnParent('https://cool-baklava-1b7655.netlify.app/members/module/classic')">Idź</button>
+  })();
+
+
   </script>
 </body>
 </html>
