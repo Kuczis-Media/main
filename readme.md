@@ -1,22 +1,48 @@
-https://kuczis.netlify.app/members/module/bitpaper
-
-https://kuczis.netlify.app/members/module/chat/?prompt=test.json
-
-https://kuczis.netlify.app/members/module/forms/?id=1YmTr2X0Fx-0T5a8CHpH0sBBz9rTzmIELo2bLnlsdd3M
-
-https://kuczis.netlify.app/members/module/kalkulator
-
-https://kuczis.netlify.app/members/module/pdf/?id=1qKkDarVM8qn1GHkNalt9f8n7IXNUawZF&type=1
-
-https://kuczis.netlify.app/members/module/contact/?internal=wiadomosc
-
-https://kuczis.netlify.app/members/module/slides/index.html?id=1q27sAFuVxw-ILceGOdVPcaBz2nD_sC2B&type=
+Linki do prostych tablic:
+https://chemdisk.netlify.app/members/module/bitpaper
+https://chemdisk.netlify.app/members/module/whiteboard
 
 
-    
-https://kuczis.netlify.app/members/module/whiteboard
+Chat Gemini:
+https://chemdisk.netlify.app/members/module/chat/?prompt=test.json
 
-https://kuczis.netlify.app/members/module/film/?id=CH50zuS8DD0&type=1
+prompt=nazwa.json -> nazwa pliku json z promptem
+
+
+Rózne kalkulatory:
+https://chemdisk.netlify.app/members/module/kalkulator
+https://chemdisk.netlify.app/members/module/classic
+
+Testy forms:
+https://chemdisk.netlify.app/members/module/forms/?id=1YmTr2X0Fx-0T5a8CHpH0sBBz9rTzmIELo2bLnlsdd3M
+id= id testu z linku do udotępniania
+
+Contact form:
+https://chemdisk.netlify.app/members/module/contact/?internal=wiadomosc
+internal = -> wiadomość która ma być twoja - nieedytowalna dla uzytkownika
+
+Google slides:
+https://chemdisk.netlify.app/members/module/slides/index.html?id=1q27sAFuVxw-ILceGOdVPcaBz2nD_sC2B&type=
+id= -> id z dysku google
+type = 1 -> bez zabezpieczeń
+type = 2 -> zabezpieczenia
+
+Pdf Google Drive viewer:
+https://chemdisk.netlify.app/members/module/pdf/?id=1qKkDarVM8qn1GHkNalt9f8n7IXNUawZF&type=1
+id= -> id z dysku google
+type = 1 -> ochrona pobierania
+type = 2 -> wymuszanie pobierania
+type = 3 -> bez ochrony podgląd
+
+Film:
+https://chemdisk.netlify.app/members/module/film/?id=CH50zuS8DD0&type=1
+type=1 -> id z yt
+type=2 -> id z google drive
+type=3 -> id z yt - brak ochrony
+
+
+
+
 
 
 
