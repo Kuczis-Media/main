@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <link rel="icon" href="/assets/icon/benzene-ring.svg" type="image/svg+xml">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Test - ChemDisk</title>
+  <!--<meta name="x-members" content="1" />
+  <meta http-equiv="Cache-Control" content="no-store" />-->
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <script defer src="/assets/js/auth.js"></script>
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      /* Lekko zielone tło i "pływające" okna */
+      --bg: #eaf7ef;            /* jaśniejsza, delikatnie zielona */
+      --fg: #0f172a;            /* ciemny tekst na jasnym tle */
+      --muted: #4b5563;         /* stonowany opis */
+      --card: rgba(22,37,28,.85); /* półprzezroczysta karta na overlay */
+      --radius: 16px;
+      --shadow: 0 16px 36px rgba(0,0,0,.18);
+      --shadow-float: 0 22px 48px rgba(0,0,0,.25);
+      --pad: clamp(12px, 2vw, 28px);
+    }
+    *{ box-sizing: border-box; }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; overflow:hidden; }
+    body{ min-height:100dvh; }
+    .stage{ position:fixed; inset:0; display:grid; padding: 0; }
+    .stage{ isolation:isolate; }
+    /* Docelowy iframe – ukryty do czasu „gotowe” */
+    /* Pływające "okno" z formularzem */
+    iframe#form{
+      width:100%; height:100%; border:0; display:block;
+      background:transparent; /* brak ramki/teł – czysty embed */
+      border-radius: 0;
+      box-shadow: none;
+      z-index:1; visibility:hidden;
+      animation: none;
+    }
+    .stage.ready iframe#form{ visibility:visible; }
+
+    /* Loader */
+    #loader{
+      position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.75);
+      backdrop-filter: blur(6px) saturate(1.1); z-index:3; color:#e5e7eb;
+    }
+    #loader[hidden]{ display:none !important; }
+    .loader-card{
+      max-width:560px; width:min(92vw,560px); background:var(--card); border-radius:var(--radius);
+      box-shadow:var(--shadow); padding:20px 22px; text-align:center;
+      animation: floaty 7s ease-in-out infinite alternate;
+    }
+    .loader-card b{ font-weight:700; }
+    .loader-card .hint{ color:var(--muted); margin-top:8px; }
+
+    /* Błąd */
+    #error{
+      position:fixed; inset:0; display:none; place-items:center; z-index:4; backdrop-filter: blur(2px);
+    }
+    #error.show{ display:grid; }
+    .error-card{
+      max-width:720px; width:min(92vw,720px); background:var(--card); border-radius:var(--radius);
+      box-shadow:var(--shadow); padding:24px; text-align:center; color:#e5e7eb;
+      animation: floaty 8s ease-in-out infinite alternate;
+    }
+    code{ background:rgba(255,255,255,.08); padding:2px 6px; border-radius:6px; }
+
+    /* Subtelna animacja „pływania” okien */
+    @keyframes floaty {
+      0%   { transform: translateY(0); box-shadow: var(--shadow); }
+      100% { transform: translateY(-6px); box-shadow: var(--shadow-float); }
+    }
+
+    /* Tło z lekko poruszającymi się rozmytymi plamami (podkreśla efekt „pływania”) */
+    .ambient{ position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; filter: blur(16px) saturate(1.1); opacity:.75; }
+    .ambient .blob{ position:absolute; border-radius:50%; will-change: transform; }
+    .ambient .b1{ width:520px; height:520px; left:-120px; top:-80px; background: radial-gradient(circle at 30% 30%, #48c78e55 0%, #48c78e35 55%, transparent 70%); animation: drift1 32s ease-in-out infinite alternate; }
+    .ambient .b2{ width:420px; height:420px; right:-80px; top:20%; background: radial-gradient(circle at 70% 40%, #34d39955 0%, #34d39930 55%, transparent 70%); animation: drift2 28s ease-in-out infinite alternate; }
+    .ambient .b3{ width:360px; height:360px; left:20%; bottom:-120px; background: radial-gradient(circle at 50% 50%, #22c55e4d 0%, #22c55e26 55%, transparent 70%); animation: drift3 36s ease-in-out infinite alternate; }
+
+    @keyframes drift1 { 0% { transform: translate3d(0,0,0) } 100% { transform: translate3d(30px, -18px, 0) } }
+    @keyframes drift2 { 0% { transform: translate3d(0,0,0) } 100% { transform: translate3d(-26px, 22px, 0) } }
+    @keyframes drift3 { 0% { transform: translate3d(0,0,0) } 100% { transform: translate3d(18px, -26px, 0) } }
+
+    @media (prefers-reduced-motion: reduce){
+      iframe#form{ animation: none; }
+      .ambient{ display:none; }
+    }
+
+    /* iOS Safari bezpieczne marginesy */
+    @supports (-webkit-touch-callout:none){
+      .stage{ position:absolute; top:calc(env(safe-area-inset-top) + var(--pad)); right:calc(env(safe-area-inset-right) + var(--pad));
+              bottom:calc(env(safe-area-inset-bottom) + var(--pad)); left:calc(env(safe-area-inset-left) + var(--pad)); }
+    }
+
+    /* Iframe preloaderów – nigdy nie pokazujemy */
+    .preload-wrap{ position:fixed; inset:auto; width:0; height:0; overflow:hidden; }
+    .preload-wrap iframe{ width:0; height:0; border:0; }
+  </style>
+</head>
+<body>
+  <main class="stage" aria-busy="true">
+    <!-- Delikatne tło podkreślające „pływanie” kart formularza -->
+    <div class="ambient" aria-hidden="true"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+    <iframe id="form" title="Osadzony formularz" referrerpolicy="strict-origin-when-cross-origin" allow="fullscreen"></iframe>
+
+    <div id="loader" aria-live="polite">
+      <div class="loader-card">
+        <b>Ładowanie formularza…</b>
+        <div class="hint">To może potrwać chwilę przy wolniejszym łączu</div>
+      </div>
+    </div>
+
+    <div id="error" role="alert" aria-hidden="true">
+      <div class="error-card">
+        <h2>Nieprawidłowe lub brakujące <code>id</code></h2>
+        <p>Użyj: <code>?id=FORM_ID</code> lub wklej pełny link do Google Forms jako <code>id</code>.</p>
+        <p class="hint">Przykład: <code>?id=https://forms.gle/AbCdEf...</code> albo <code>?id=1FAIpQLSdBldI4mPt-...-V8KhDkQ</code></p>
+        <p class="hint">Masz link do Dysku/Prezentacji? Użyj modułu Slides lub PDF.</p>
+      </div>
+    </div>
+
+    <!-- Niewidoczny kontener na iframy-preloadery -->
+    <div class="preload-wrap" aria-hidden="true"></div>
+  </main>
+
+  <script>
+  (() => {
+    const STORAGE_KEY = 'chemdisk_forms_embed_v1';
+    const IFRAME = document.getElementById('form');
+    const LOADER = document.getElementById('loader');
+    const ERROR  = document.getElementById('error');
+    const STAGE  = document.querySelector('main.stage');
+    const PRELOAD_WRAP = document.querySelector('.preload-wrap');
+
+    // ——— Helpers ———
+    function showLoader(text, hint){
+      if (!LOADER) return;
+      const b = LOADER.querySelector('.loader-card b');
+      const h = LOADER.querySelector('.hint');
+      if (b && text) b.textContent = text;
+      if (h && hint) h.textContent = hint;
+      LOADER.hidden = false;
+      STAGE?.setAttribute('aria-busy','true');
+      STAGE?.classList.remove('ready');
+    }
+    function hideLoader(){
+      LOADER.hidden = true;
+      STAGE?.removeAttribute('aria-busy');
+    }
+    function showError(){
+      ERROR.classList.add('show');
+      ERROR.setAttribute('aria-hidden','false');
+    }
+    function hideError(){
+      ERROR.classList.remove('show');
+      ERROR.setAttribute('aria-hidden','true');
+    }
+    function setSrc(url){ IFRAME.src = url; }
+
+    function saveState(raw){ try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(raw)); } catch {} }
+    function loadState(){ try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY)||'{}'); } catch { return {}; } }
+    // Po zaczytaniu parametrów, wyczyść pasek adresu do roota ("/")
+    function clearQuery(){ try { history.replaceState({}, document.title, '/'); } catch {} }
+
+    // ——— Parsowanie wejścia ———
+    function normalizeInput(raw){
+      if (!raw) return null;
+      const s = decodeURIComponent(String(raw).trim());
+      // pełny URL?
+      if (/^https?:\/\//i.test(s)) {
+        try {
+          const u = new URL(s);
+          const isForms = /(^|\.)docs\.google\.com$/i.test(u.hostname) && /\/forms\//i.test(u.pathname);
+          const isShort = /(^|\.)forms\.gle$/i.test(u.hostname);
+          if (!(isForms || isShort)) return null;
+          return { kind:'url', url: s };
+        } catch { return null; }
+      }
+      // samo ID
+      const m = s.match(/[A-Za-z0-9_-]{10,}/);
+      return m ? { kind:'id', id:m[0] } : null;
+    }
+
+    function ensureEmbedded(urlStr){
+      try { const u = new URL(urlStr); u.searchParams.set('embedded','true'); return u.toString(); }
+      catch { return urlStr; }
+    }
+    function buildUrlFromId(id, variant /* 'e' | 'legacy' */){
+      return variant === 'legacy'
+        ? `https://docs.google.com/forms/d/${id}/viewform?embedded=true`
+        : `https://docs.google.com/forms/d/e/${id}/viewform?embedded=true`;
+    }
+    function swapVariant(urlStr){
+      try {
+        const u = new URL(urlStr);
+        if (/\/forms\/d\/e\//i.test(u.pathname)) u.pathname = u.pathname.replace(/\/forms\/d\/e\//i, '/forms/d/');
+        else if (/\/forms\/d\//i.test(u.pathname)) u.pathname = u.pathname.replace(/\/forms\/d\//i, '/forms/d/e/');
+        u.searchParams.set('embedded','true');
+        return u.toString();
+      } catch { return urlStr; }
+    }
+
+    // ——— Preload 2 wariantów i wybór lepszego ———
+    function preloadBothAndChoose(primaryUrl, secondaryUrl, opts){
+      const {
+        MIN_LOADER_MS   = 900,   // minimalny czas loadera
+        GIVEUP_MS       = 8000,  // twardy timeout całego procesu
+        SUSPECT_THRESH  = 400,   // < 400 ms traktujemy jako „podejrzanie szybkie” (często strona błędu)
+        PREFERENCE_GAP  = 200    // jeśli jeden iframe był o ≥200 ms wolniejszy, uznajemy go za bardziej wiarygodny
+      } = opts || {};
+
+      return new Promise((resolve) => {
+        const t0 = performance.now();
+        const results = {
+          primary: { loaded:false, dt:Infinity, url:primaryUrl },
+          secondary: { loaded:false, dt:Infinity, url:secondaryUrl }
+        };
+
+        // Utwórz 2 ukryte iframy-preloadery
+        const ifrPrim = document.createElement('iframe');
+        const ifrSec  = document.createElement('iframe');
+        [ifrPrim, ifrSec].forEach(el => {
+          el.setAttribute('referrerpolicy','strict-origin-when-cross-origin');
+          el.setAttribute('aria-hidden','true');
+          el.loading = 'eager';
+          el.decoding = 'sync';
+        });
+
+        function cleanup(){
+          try { ifrPrim.remove(); } catch {}
+          try { ifrSec.remove(); } catch {}
+        }
+
+        function decideAndResolve(){
+          // heurystyka wyboru:
+          // 1) jeśli któryś ma dt >= SUSPECT_THRESH, preferuj ten; jeżeli oba >=, wybierz wolniejszy (większy dt)
+          // 2) jeżeli różnica >= PREFERENCE_GAP, bierz wolniejszy
+          // 3) inaczej: preferuj primary (stabilniejszy canonical)
+          const p = results.primary, s = results.secondary;
+
+          let candidate = p.url; // domyślnie primary
+          const bothLoaded = p.loaded && s.loaded;
+
+          const pOK = p.dt >= SUSPECT_THRESH;
+          const sOK = s.dt >= SUSPECT_THRESH;
+
+          if (bothLoaded) {
+            if (pOK && !sOK) candidate = p.url;
+            else if (!pOK && sOK) candidate = s.url;
+            else if (pOK && sOK) {
+              candidate = (p.dt > s.dt) ? p.url : s.url; // wolniejszy zwykle „prawdziwy”
+            } else {
+              // żaden nie wygląda super — wybór stabilny: primary
+              candidate = p.url;
+            }
+            // dodatkowa preferencja na większą różnicę
+            if (Math.abs(p.dt - s.dt) >= PREFERENCE_GAP) {
+              candidate = (p.dt > s.dt) ? p.url : s.url;
+            }
+          } else if (p.loaded || s.loaded) {
+            // załadował się tylko jeden – bierz ten, ale jeśli „podejrzanie szybki”, daj jeszcze moment na drugi
+            const sole = p.loaded ? p : s;
+            if (sole.dt < SUSPECT_THRESH) {
+              // damy krótką szansę drugiemu (100ms) zanim potwierdzimy
+              setTimeout(() => resolve(sole.url), 100);
+              cleanup();
+              return;
+            }
+            candidate = sole.url;
+          }
+
+          resolve(candidate);
+          cleanup();
+        }
+
+        function onLoad(which){
+          const dt = performance.now() - t0;
+          results[which].loaded = true;
+          results[which].dt = dt;
+
+          // Jeśli oba już się zameldowały — decyduj od razu
+          if (results.primary.loaded && results.secondary.loaded) {
+            decideAndResolve();
+          }
+        }
+
+        ifrPrim.addEventListener('load', () => onLoad('primary'), { once:true });
+        ifrSec .addEventListener('load', () => onLoad('secondary'), { once:true });
+
+        // start preloadu
+        ifrPrim.src = primaryUrl;
+        ifrSec.src  = secondaryUrl;
+        PRELOAD_WRAP.appendChild(ifrPrim);
+        PRELOAD_WRAP.appendChild(ifrSec);
+
+        // awaryjny timeout – zdecyduj na bazie tego co mamy
+        setTimeout(() => decideAndResolve(), GIVEUP_MS);
+
+      });
+    }
+
+    // ——— Start ———
+    (async function init(){
+      showLoader();
+
+      const qs   = new URLSearchParams(location.search);
+      const keep = (qs.get('keep')||'') === '1';
+
+      // 1) Zczytaj z URL
+      let raw = qs.get('id') || '';
+      // 2) Jeśli jest — zapisz i ukryj query (żeby nie było widać ?id=)
+      if (raw) {
+        saveState({ raw });
+        if (!keep) clearQuery();
+      } else {
+        // 3) Brak w URL? — weź z pamięci
+        const mem = loadState();
+        raw = mem.raw || '';
+      }
+
+      const parsed = normalizeInput(raw);
+      if (!parsed) { hideLoader(); showError(); return; }
+
+      // Wyznacz primary/secondary URL
+      let primaryUrl = '';
+      let secondaryUrl = '';
+      if (parsed.kind === 'url') {
+        primaryUrl   = ensureEmbedded(parsed.url);
+        secondaryUrl = swapVariant(primaryUrl);
+      } else {
+        const id = parsed.id;
+        primaryUrl   = buildUrlFromId(id, 'e');
+        secondaryUrl = buildUrlFromId(id, 'legacy');
+      }
+
+      const MIN_LOADER_MS = 900;
+      const startT = performance.now();
+
+      try {
+        // Preload i wybór „lepszego” wariantu zanim pokażemy użytkownikowi iframe
+        const chosen = await preloadBothAndChoose(primaryUrl, secondaryUrl, { MIN_LOADER_MS });
+
+        // Ustawiamy właściwy src dopiero po wyborze
+        setSrc(chosen);
+
+        // Po realnym „load” docelowego iframe chowamy loader (z minimalnym czasem)
+        IFRAME.addEventListener('load', () => {
+          const dt = performance.now() - startT;
+          const wait = Math.max(0, MIN_LOADER_MS - dt);
+          setTimeout(() => {
+            hideError();
+            hideLoader();
+            STAGE?.classList.add('ready');
+          }, wait);
+        }, { once:true });
+
+      } catch {
+        hideLoader(); showError();
+      }
+
+      // iOS/Safari: jeśli iframe „zgubi” src po powrocie z tła
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && !IFRAME.src) setSrc(primaryUrl);
+      });
+    })();
+
+    // Usunięto wykrywanie DevTools/blokady — powodowało problemy na iPhone.
+  })();
+  </script>
+</body>
+</html>
