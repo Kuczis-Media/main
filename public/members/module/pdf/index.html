@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <link rel="icon" href="/assets/icon/benzene-ring.svg" type="image/svg+xml">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <!--<meta name="x-members" content="1" />
+    <meta http-equiv="Cache-Control" content="no-store" />-->
+    <title>Preview - ChemDisk</title>
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <script defer src="/assets/js/auth.js"></script>
+    <style id="anti-flash">html{visibility:hidden}</style>
+    <script>
+      // Wczesne czyszczenie paska adresu: zapisz parametry do sesji i usuń query jak najwcześniej
+      (function earlyStrip(){
+        try {
+          const sp = new URLSearchParams(location.search);
+          const keep = (sp.get('keep')||'') === '1';
+          const id = (sp.get('id')||'').trim();
+          const type = (sp.get('type')||'').trim();
+          const hasAny = id || type || (sp.get('mode')||'') || (sp.get('mask')||'');
+          if (hasAny) {
+            try {
+              if (id) sessionStorage.setItem('drive_id', id);
+              if (type) sessionStorage.setItem('drive_type', type);
+            } catch {}
+            if (!keep) {
+              // Wyczyść do katalogu bieżącego (np. http://host:port/ lub /podkatalog/)
+              const basePath = location.pathname.replace(/[^\/]*$/, '');
+              history.replaceState(null, '', basePath || '/');
+            }
+          }
+        } catch {}
+        // Odsłoń dokument po ewentualnym czyszczeniu URL
+        try { document.documentElement.style.visibility = 'visible'; } catch {}
+      })();
+    </script>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        background: #0b0d10;
+        color: #e6e8eb;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+      body { overflow: hidden; }
+      #app {
+        position: fixed;
+        inset: 0;
+      }
+      
+      .frame-wrap { position: fixed; inset: 0; }
+      iframe.viewer, iframe.hidden-download {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: #0b0d10;
+        display: block;
+      }
+      iframe.hidden-download { width: 0; height: 0; visibility: hidden; }
+      .empty {
+        display: grid;
+        place-items: center;
+        height: 100%;
+        text-align: center;
+        padding: 24px;
+        color: #c7cbd1;
+      }
+      .empty code { background: #0f1216; padding: 2px 6px; border-radius: 4px; border: 1px solid #1c2127; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="frame-wrap" id="frameWrap">
+        <div class="empty" id="empty">
+          <div>
+            <div style="font-weight:600; margin-bottom: 8px;">Podaj parametry w URL albo z sesji</div>
+            <div>Użycie: <code>http://localhost:1234/index.html?id=FILE_ID&amp;type=1</code></div>
+            <div style="margin-top:8px; opacity:.8">Typy: 1 = preview (sandbox), 2 = pobierz, 3 = preview (bez sandbox)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Usunięto wykrywanie DevTools i blokady — powodowało problemy na iPhone.
+
+      // Utilsy
+      const qs = (s) => document.querySelector(s);
+      const frameWrap = () => qs('#frameWrap');
+      const empty = () => qs('#empty');
+
+      function setStatus(text) { /* no-op po usunięciu paska stanu */ }
+
+      function clearChildren(el) {
+        while (el.firstChild) el.removeChild(el.firstChild);
+      }
+
+      function buildUrl(kind, id) {
+        switch (kind) {
+          case 1: // preview
+          case 3: // preview bez sandbox
+            return `https://drive.google.com/file/d/${id}/preview`;
+          case 2: // download
+          default:
+            return `https://drive.google.com/uc?export=download&id=${id}`;
+        }
+      }
+
+      function attemptOpenInNewTab(url) {
+        try {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        } catch {}
+      }
+
+      function render(type, id, openNewTab = false) {
+        const t = Number(type) || 1;
+        const url = buildUrl(t, id);
+
+        clearChildren(frameWrap());
+
+        if (t === 2) {
+          // Wymuś pobieranie, ale bez opuszczania strony
+          const msg = document.createElement('div');
+          msg.className = 'empty';
+          msg.innerHTML = `<div><div style="font-weight:600; margin-bottom:8px;">Rozpoczynam pobieranie…</div>
+                           <div>Jeśli nie zadziała, <a class="button" href="${url}" rel="noopener" target="_blank">kliknij tutaj</a>.</div></div>`;
+          frameWrap().appendChild(msg);
+
+          const shim = document.createElement('iframe');
+          shim.className = 'hidden-download';
+          shim.setAttribute('referrerpolicy', 'no-referrer');
+          shim.src = url;
+          frameWrap().appendChild(shim);
+          setStatus(`Tryb: pobieranie (typ 2) • ID: ${id}`);
+          if (openNewTab) {
+            // Spróbuj równolegle otworzyć w nowej karcie (jeśli popup blocker pozwoli)
+            attemptOpenInNewTab(url);
+          }
+          return;
+        }
+
+        const iframe = document.createElement('iframe');
+        iframe.className = 'viewer';
+        iframe.src = url;
+        iframe.setAttribute('referrerpolicy', 'no-referrer');
+        iframe.setAttribute('allow', 'clipboard-read; clipboard-write; fullscreen');
+        iframe.setAttribute('allowfullscreen', '');
+
+        if (t === 1) {
+          // preview z sandboxem (brak możliwości przekierowań / popupów)
+          iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+          setStatus(`Tryb: preview (sandbox, typ 1) • ID: ${id}`);
+        } else if (t === 3) {
+          // preview bez sandboxa
+          setStatus(`Tryb: preview (bez sandbox, typ 3) • ID: ${id}`);
+        }
+
+        frameWrap().appendChild(iframe);
+
+        if (openNewTab) {
+          // Spróbuj równolegle otworzyć w nowej karcie (jeśli popup blocker pozwoli)
+          attemptOpenInNewTab(url);
+        }
+      }
+
+      function saveToSession(id, type) {
+        try {
+          sessionStorage.setItem('drive_id', id);
+          sessionStorage.setItem('drive_type', String(type || 1));
+          sessionStorage.setItem('drive_saved_at', String(Date.now()));
+        } catch {}
+      }
+
+      function loadFromSession() {
+        try {
+          const id = sessionStorage.getItem('drive_id');
+          const type = Number(sessionStorage.getItem('drive_type') || '1');
+          if (id) {
+            empty()?.remove();
+            render(type, id, false);
+          } else {
+            setStatus('Brak danych w sesji');
+          }
+        } catch {
+          setStatus('Sesja niedostępna');
+        }
+      }
+
+      function stripUrlToHostOnly() {
+        try {
+          // Pokaż tylko host (np. http://localhost:1234/)
+          const to = location.origin + '/';
+          if (location.href !== to) {
+            history.replaceState({}, '', to);
+          }
+        } catch {}
+      }
+
+      // Inicjalizacja
+      (function init(){
+        const params = new URLSearchParams(location.search);
+        const id = (params.get('id') || '').trim();
+        const rawType = (params.get('type') || '').trim();
+        const type = Number(rawType) || 1;
+
+        if (id) {
+          // Zapisz do sesji i wyczyść URL do hosta
+          saveToSession(id, type);
+          stripUrlToHostOnly();
+          empty()?.remove();
+          render(type, id, true);
+        } else {
+          // Bez parametrów – spróbuj z sesji i także oczyść URL
+          stripUrlToHostOnly();
+          loadFromSession();
+        }
+
+      })();
+    </script>
+  </body>
+</html>
