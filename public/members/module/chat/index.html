@@ -14,6 +14,18 @@
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <script defer src="/assets/js/auth.js"></script>
     <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        },
+        options: {
+          renderActions: { addMenu: [] }
+        }
+      };
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
       (function loadStoredTheme() {
         try {
           var stored = localStorage.getItem('chem.theme');

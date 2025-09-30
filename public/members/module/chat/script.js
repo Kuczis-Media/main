@@ -9,6 +9,14 @@ const API = {
   TEMPERATURE: 0.2
 };
 
+const DEFAULT_SYSTEM_PROMPT = [
+  'Jesteś asystentem ChemDisk wspierającym naukę chemii i matematyki.',
+  'Odpowiadasz po polsku i zaczynasz od najważniejszego wyniku lub konkluzji.',
+  'Dalsze objaśnienia podawaj zwięźle, tylko kluczowe kroki i punkty.',
+  'Każde równanie lub wzór zapisuj w LaTeX pomiędzy $...$ (wers) albo $$...$$ (blok).',
+  'Rozszerzone wyjaśnienia dodawaj dopiero na wyraźną prośbę użytkownika.'
+].join('\n');
+
 const IMAGE_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB
 
 (() => {
@@ -239,9 +247,9 @@ const IMAGE_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB
 
   // ---------- Messages UI ----------
   function messageEl(role, html){ const d=document.createElement('div'); d.className=`message ${role}`; d.innerHTML=html; return d; }
-  function addUserMessage(text){ const el=messageEl('user',`<strong>Ty:</strong><div class="md">${escapeHtml(text)}</div>`); els.chats.appendChild(el); scrollToBottom(); return el; }
-  function addAssistantMessage(initial = '') { const el = messageEl('assistant', `<strong>ChemDisk:</strong><div class="md">${initial || '<em>Generowanie...</em>'}</div>`); els.chats.appendChild(el); scrollToBottom(); return el; }
-  function updateAssistantMessage(el, html) { el.innerHTML = `<strong>ChemDisk:</strong><div class="md">${html}</div>`; scrollToBottom(); }
+  function addUserMessage(text){ const el=messageEl('user',`<strong>Ty:</strong><div class="md">${escapeHtml(text)}</div>`); els.chats.appendChild(el); typesetMath(el); scrollToBottom(); return el; }
+  function addAssistantMessage(initial = '') { const el = messageEl('assistant', `<strong>ChemDisk:</strong><div class="md">${initial || '<em>Generowanie...</em>'}</div>`); els.chats.appendChild(el); typesetMath(el); scrollToBottom(); return el; }
+  function updateAssistantMessage(el, html) { el.innerHTML = `<strong>ChemDisk:</strong><div class="md">${html}</div>`; typesetMath(el); scrollToBottom(); }
   function scrollToBottom(){ requestAnimationFrame(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})); }
   function clearChats(){ if(!confirm('Wyczyścić historię czatu?')) return; els.chats.innerHTML=''; state.messages=[]; localStorage.removeItem('chem.messages'); }
 
@@ -303,7 +311,9 @@ const IMAGE_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB
     const assistantEl = addAssistantMessage();
 
     try{
-      const system = state.matura ? getMaturaSystemPrompt() : null;
+      const system = state.matura
+        ? composeSystemPrompt(getMaturaSystemPrompt())
+        : DEFAULT_SYSTEM_PROMPT;
       const resText = await chatGenerate({ messages: state.messages, system, attachment: state.attachment });
       updateAssistantMessage(assistantEl, renderMarkdown(resText || ''));
       state.messages.push({ role:'assistant', content: resText });
@@ -365,6 +375,12 @@ const IMAGE_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB
   }
 
   // ---------- Matura system prompt ----------
+  function composeSystemPrompt(extra){
+    const trimmed = (extra || '').trim();
+    if(!trimmed) return DEFAULT_SYSTEM_PROMPT;
+    return `${DEFAULT_SYSTEM_PROMPT}\n\n${trimmed}`;
+  }
+
   function getMaturaSystemPrompt(){
     return state.maturaPrompt;
   }
@@ -408,6 +424,19 @@ const IMAGE_SIZE_LIMIT = 5 * 1024 * 1024; // 5 MB
       r.onload=()=>{ const dataUrl=String(r.result||''); const base64=dataUrl.split(',')[1]||''; res(base64); };
       r.onerror=rej; r.readAsDataURL(file);
     });
+  }
+
+  function typesetMath(root){
+    try{
+      const mj = window.MathJax;
+      if(!mj || typeof mj.typesetPromise !== 'function') return;
+      const nodes = root ? (Array.isArray(root) ? root : [root]) : undefined;
+      mj.typesetPromise(nodes).catch((err)=>{
+        console.error('MathJax typeset failed', err);
+      });
+    }catch(err){
+      console.error('MathJax error', err);
+    }
   }
 
   document.addEventListener('DOMContentLoaded', bootstrap);
