@@ -4,13 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="x-members" content="1" />
-  <title>Strefa kursanta</title>
+  <link rel="icon" href="https://cdn.jsdelivr.net/gh/Kuczis-Media/logo/benzene-ring.svg" type="image/svg+xml">
+  
+  <title>Chemdisk</title>
   <meta http-equiv="Cache-Control" content="no-store" />
 
   <!-- Netlify Identity + auth helpers -->
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <script defer src="/assets/js/auth.js"></script>
-  <script src="/assets/js/prevention.js"></script>
+  <script src="/assets/js/prevention-strict.js"></script>
 
 
   <style>
@@ -78,53 +80,7 @@
         }
       }
     });
-    //PRZEKIEROWANIA LINKÓW DO RODZICA JEŻELI SĄ ONE RELATYWNE
-    (function () {
-  const PARENT = 'https://chemdisk.netlify.app';
-  const EMBED  = 'https://cool-baklava-1b7655.netlify.app';
-
-  function toTail(u) {
-    try {
-      const url = new URL(u, location.href);
-      // Bierzemy "końcówkę" tylko gdy link jest do domeny embeda
-      if (url.origin === EMBED || url.origin === location.origin) {
-        return url.pathname + url.search + url.hash;
-      }
-    } catch {}
-    return null;
-  }
-
-  function goParent(tail, e) {
-    if (!tail) return false;
-    if (e) {
-      e.preventDefault();
-      // Najmocniejsze zatrzymanie, żeby inne handlery (np. framework) nie zdążyły
-      e.stopImmediatePropagation();
-    }
-    window.top.location.assign(PARENT + tail);
-    return true;
-  }
-
-  // 1) Klik w <a> – także z target="_blank"
-  document.addEventListener('click', (e) => {
-    // ignoruj skróty do "nowej karty"
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-    const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
-    if (!a) return;
-    const tail = toTail(a.getAttribute('href'));
-    goParent(tail, e);
-  }, { capture: true, passive: false });
-
-  // 2) Programowe otwieranie nowej karty (window.open / target="_blank")
-  const _open = window.open;
-  window.open = function(url, target, features) {
-    const tail = toTail(url);
-    if (tail) return goParent(tail) || null;
-    return _open ? _open.apply(this, arguments) : null;
-  };
-})();
-
-
+ 
   </script>
 </body>
 </html>
