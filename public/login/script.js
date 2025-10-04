@@ -184,6 +184,45 @@
         signup: document.getElementById("signup-form"),
         token: document.getElementById("token-form")
       };
+      const ensureWidgetHidden = () => {
+        const widget = document.getElementById("netlify-identity-widget");
+        if (widget) {
+          widget.style.display = "none";
+          widget.setAttribute("aria-hidden", "true");
+        }
+        if (window.netlifyIdentity && typeof netlifyIdentity.close === "function") {
+          try { netlifyIdentity.close(); } catch {}
+        }
+      };
+      let widgetGuardsBound = false;
+      const guardIdentityWidget = () => {
+        if (!window.netlifyIdentity || typeof netlifyIdentity.on !== "function") {
+          ensureWidgetHidden();
+          return false;
+        }
+        if (!widgetGuardsBound) {
+          netlifyIdentity.on("open", ensureWidgetHidden);
+          netlifyIdentity.on("init", ensureWidgetHidden);
+          netlifyIdentity.on("login", ensureWidgetHidden);
+          netlifyIdentity.on("logout", ensureWidgetHidden);
+          widgetGuardsBound = true;
+        }
+        ensureWidgetHidden();
+        return true;
+      };
+      if (!guardIdentityWidget()) {
+        const retryGuard = window.setInterval(() => {
+          if (guardIdentityWidget()) window.clearInterval(retryGuard);
+        }, 150);
+        window.setTimeout(() => window.clearInterval(retryGuard), 5000);
+      }
+      if ("MutationObserver" in window && document.body) {
+        const observer = new MutationObserver(() => ensureWidgetHidden());
+        observer.observe(document.body, { childList: true, subtree: true });
+        window.setTimeout(() => observer.disconnect(), 4000);
+      } else {
+        window.setTimeout(() => ensureWidgetHidden(), 0);
+      }
       const showForm = (target) => {
         const available = Object.keys(forms).filter((key) => forms[key]);
         if (!available.includes(target)) target = "login";
