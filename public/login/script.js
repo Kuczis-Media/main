@@ -19,11 +19,15 @@
       if (!hash) return {};
       return hash.split("&").reduce((acc, piece) => {
         if (!piece) return acc;
-        const [key, value = ""] = piece.split("=");
-        const k = decodeURIComponent(key || "");
-        const v = decodeURIComponent(value || "");
-        if (!k) return acc;
-        acc[k] = v;
+        const eqIndex = piece.indexOf("=");
+        const rawKey = eqIndex === -1 ? piece : piece.slice(0, eqIndex);
+        const rawValue = eqIndex === -1 ? "" : piece.slice(eqIndex + 1);
+        let keyDecoded = rawKey || "";
+        let valueDecoded = rawValue || "";
+        try { keyDecoded = decodeURIComponent(rawKey || ""); } catch {}
+        try { valueDecoded = decodeURIComponent(rawValue || ""); } catch {}
+        if (!keyDecoded) return acc;
+        acc[keyDecoded] = valueDecoded;
         return acc;
       }, {});
     };
