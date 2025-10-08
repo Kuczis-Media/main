@@ -46,6 +46,11 @@
         return "";
       }
     };
+    const normalizeTokenValue = (value) => {
+      if (typeof value !== "string") return "";
+      const trimmed = value.trim();
+      return trimmed.replace(/ /g, "+");
+    };
     const detectIdentityFlow = () => {
       const hashParams = parseHashParams();
       let searchParams = null;
@@ -86,7 +91,7 @@
         };
       }
 
-      const token = (() => {
+      const token = normalizeTokenValue((() => {
         const baseToken = searchParams.get('token');
         if (baseToken) return baseToken;
         if (flow === 'invite') return getTokenFrom(['invite_token', 'token']);
@@ -94,7 +99,7 @@
         if (flow === 'confirm') return getTokenFrom(['confirmation_token', 'token']);
         if (flow === 'email-change') return getTokenFrom(['email_change_token', 'token']);
         return '';
-      })();
+      })());
       const email = (() => {
         const direct = searchParams.get('email') || searchParams.get('new_email');
         if (direct) return direct;
@@ -294,7 +299,7 @@
       const configureTokenForm = (cfg) => {
         if (!tokenForm) return;
         tokenFlowActive = true;
-        tokenFlowState = { type: cfg.type, token: cfg.token, email: cfg.email || "" };
+        tokenFlowState = { type: cfg.type, token: normalizeTokenValue(cfg.token), email: cfg.email || "" };
         toggleTabs(false);
         showForm("token");
         if (tokenTitle) tokenTitle.textContent = cfg.title || "";
@@ -349,7 +354,12 @@
         if (password.length < MIN_PASSWORD_LENGTH) return flash(`Hasło musi mieć co najmniej ${MIN_PASSWORD_LENGTH} znaków.`, "warn");
         try {
           setBusy(tokenSubmit, true);
-          const user = await netlifyIdentity.gotrue.acceptInvite(tokenFlowState.token, password);
+          const inviteToken = normalizeTokenValue(tokenFlowState.token);
+          if (!inviteToken) {
+            flash("Brakuje tokenu dla tej operacji. Otwórz ponownie link z wiadomości.", "error");
+            return;
+          }
+          const user = await netlifyIdentity.gotrue.acceptInvite(inviteToken, password);
           try { await netlifyIdentity.refresh(); } catch {}
           const current = netlifyIdentity.currentUser() || user;
           if (current) {
@@ -384,7 +394,12 @@
         if (password.length < MIN_PASSWORD_LENGTH) return flash(`Hasło musi mieć co najmniej ${MIN_PASSWORD_LENGTH} znaków.`, "warn");
         try {
           setBusy(tokenSubmit, true);
-          const recoveredUser = await netlifyIdentity.gotrue.recover(tokenFlowState.token, true);
+          const recoveryToken = normalizeTokenValue(tokenFlowState.token);
+          if (!recoveryToken) {
+            flash("Brakuje tokenu dla tej operacji. Otwórz ponownie link z wiadomości.", "error");
+            return;
+          }
+          const recoveredUser = await netlifyIdentity.gotrue.recover(recoveryToken, true);
           try { await netlifyIdentity.refresh(); } catch {}
           let current = netlifyIdentity.currentUser() || recoveredUser;
           if (!current) {
