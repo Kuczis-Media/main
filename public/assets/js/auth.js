@@ -20,15 +20,21 @@
     if (!hash) return {};
     return hash.split('&').reduce((acc, piece) => {
       if (!piece) return acc;
-      const [key, value = ''] = piece.split('=');
-      const k = decodeURIComponent(key || '');
-      if (!k) return acc;
-      acc[k] = decodeURIComponent(value || '');
+      const eqIndex = piece.indexOf('=');
+      const rawKey = eqIndex === -1 ? piece : piece.slice(0, eqIndex);
+      const rawValue = eqIndex === -1 ? '' : piece.slice(eqIndex + 1);
+      let keyDecoded = rawKey || '';
+      let valueDecoded = rawValue || '';
+      try { keyDecoded = decodeURIComponent(rawKey || ''); } catch {}
+      try { valueDecoded = decodeURIComponent(rawValue || ''); } catch {}
+      if (!keyDecoded) return acc;
+      acc[keyDecoded] = valueDecoded;
       return acc;
     }, {});
   };
 
   const decodeEmailFromToken = (token) => {
+    token = normalizeTokenValue(token);
     if (!token || token.indexOf('.') === -1) return '';
     try {
       const base = token.split('.')[1];
@@ -42,6 +48,12 @@
     } catch (e) {
       return '';
     }
+  };
+
+  const normalizeTokenValue = (value) => {
+    if (typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    return trimmed.replace(/ /g, '+');
   };
 
   const detectIdentityFlowFromHash = () => {
@@ -69,6 +81,7 @@
     else if (flow === 'email-change') token = pickToken(['email_change_token', 'token']);
     else if (flow === 'confirm') token = pickToken(['confirmation_token', 'token']);
     else if (!flow) token = pickToken(['token']);
+    token = normalizeTokenValue(token);
 
     const email = hashParams.email || hashParams.new_email || hashParams.email_new || decodeEmailFromToken(token);
 
@@ -87,7 +100,7 @@
       });
     } catch {}
     if (flow.type) target.searchParams.set('flow', flow.type);
-    if (flow.token) target.searchParams.set('token', flow.token);
+    if (flow.token) target.searchParams.set('token', normalizeTokenValue(flow.token));
     if (flow.email) target.searchParams.set('email', flow.email);
     if (flow.rawType) target.searchParams.set('type', flow.rawType);
     if (flow.error) target.searchParams.set('error', flow.error);
