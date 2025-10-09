@@ -33,6 +33,14 @@
     }, {});
   };
 
+  const normalizeTokenValue = (value) => {
+    if (typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    const spacesFixed = trimmed.replace(/ /g, '+');
+    return spacesFixed.replace(/[\r\n\t\f\v\u00a0]+/gi, '');
+  };
+
   const decodeEmailFromToken = (token) => {
     token = normalizeTokenValue(token);
     if (!token || token.indexOf('.') === -1) return '';
@@ -48,12 +56,6 @@
     } catch (e) {
       return '';
     }
-  };
-
-  const normalizeTokenValue = (value) => {
-    if (typeof value !== 'string') return '';
-    const trimmed = value.trim();
-    return trimmed.replace(/ /g, '+');
   };
 
   const detectIdentityFlowFromHash = () => {

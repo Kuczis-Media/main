@@ -15,7 +15,9 @@
 
   <!-- Widget Identity (dla sesji i eventów) push-->
   <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-  <!-- Spójna logika sesji/nawigacji -->
+  <!-- Ogólna logika sesji (tokeny, nf_jwt, przekierowania) -->
+  <script defer src="/assets/js/auth.js"></script>
+  <!-- Spójna logika sesji/nawigacji dla widoku logowania -->
   <script defer src="./script.js"></script>
 </head>
 <body>
@@ -73,7 +75,5 @@
       <p class="helper"><a id="token-cancel" href="/login/">Wróć do logowania</a></p>
     </form>
   </div>
-    <script src="assets/login/script.js"></script>
-
 </body>
 </html>
