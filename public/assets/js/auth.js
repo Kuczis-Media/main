@@ -320,9 +320,47 @@
   const ensureFreshUserState = async (user, { enforceLogout = false } = {}) => {
     if (!user) return { active: false, user: null, serverUser: null, serverRoles: [] };
     const serverUser = await fetchServerUser(user);
-    const serverRoles = serverUser ? getRoles(serverUser) : null;
+    let serverRoles = serverUser ? getRoles(serverUser) : null;
+    const now = Date.now();
+    const serverTimedState = timedAccessState(serverUser);
+    const timedExpired = Boolean(
+      serverTimedState.role &&
+      serverTimedState.expiresAt &&
+      serverTimedState.expiresAt <= now
+    );
 
-    if (serverRoles && !rolesEqual(serverRoles, getRoles(user))) {
+    if (Array.isArray(serverRoles)) {
+      const timedRolePresent = Boolean(
+        serverTimedState.role &&
+        serverRoles.includes(serverTimedState.role)
+      );
+      const shouldDropInjectedActive = Boolean(
+        serverTimedState.injectedActive &&
+        (!timedRolePresent || timedExpired)
+      );
+      if (timedExpired || !timedRolePresent || shouldDropInjectedActive) {
+        let adjustedRoles = serverRoles;
+        if (timedRolePresent) {
+          adjustedRoles = adjustedRoles.filter((role) => role !== serverTimedState.role);
+        }
+        if (shouldDropInjectedActive) {
+          adjustedRoles = adjustedRoles.filter((role) => role !== 'active');
+        }
+        if (!rolesEqual(adjustedRoles, serverRoles)) {
+          serverRoles = adjustedRoles;
+        }
+        if (serverUser && serverUser.app_metadata) {
+          const appMeta = Object.assign({}, serverUser.app_metadata);
+          appMeta.roles = Array.isArray(serverRoles) ? [...serverRoles] : [];
+          if ((timedExpired || !timedRolePresent) && appMeta.timed_access && typeof appMeta.timed_access === 'object') {
+            appMeta.timed_access = Object.assign({}, appMeta.timed_access, { active: false });
+          }
+          serverUser.app_metadata = appMeta;
+        }
+      }
+    }
+
+    if (Array.isArray(serverRoles) && !rolesEqual(serverRoles, getRoles(user))) {
       const appMeta = Object.assign({}, user.app_metadata || {});
       appMeta.roles = serverRoles;
       user.app_metadata = appMeta;
@@ -358,16 +396,26 @@
       user.app_metadata = appMeta;
     }
 
-    const serverTimedState = timedAccessState(serverUser);
-    const serverTimedActive = Boolean(
+    const timedRolePresentAfter = Boolean(
       serverTimedState.role &&
-      serverTimedState.expiresAt > Date.now() &&
       Array.isArray(serverRoles) &&
       serverRoles.includes(serverTimedState.role)
     );
 
+    const serverTimedActive = Boolean(
+      serverTimedState.role &&
+      serverTimedState.expiresAt > now &&
+      timedRolePresentAfter
+    );
+
+    const hasAdminRole = Array.isArray(serverRoles) && serverRoles.includes('admin');
+    let hasActiveRoleFlag = Array.isArray(serverRoles) && serverRoles.includes('active');
+    if (hasActiveRoleFlag && !hasAdminRole && serverTimedState.injectedActive && (timedExpired || !timedRolePresentAfter)) {
+      hasActiveRoleFlag = false;
+    }
+
     const active = serverRoles
-      ? (hasActiveRole(serverRoles) || serverTimedActive || isStatusActive(normalizeStatus(serverStatusRaw)))
+      ? (hasAdminRole || serverTimedActive || hasActiveRoleFlag || isStatusActive(normalizeStatus(serverStatusRaw)))
       : isActiveUser(user);
     if (!active) {
       if (enforceLogout) await logoutAsInactive();
@@ -447,7 +495,7 @@
     window.addEventListener('focus', rescan);
     window.addEventListener('online', rescan);
     // And periodically (lightweight) as a backup
-    // setInterval(rescan, 30000); // Wyłączony interwał okresowego odpytywania
+    //setInterval(rescan, 60000);
   };
 
   const onLoginPageInit = async () => {
